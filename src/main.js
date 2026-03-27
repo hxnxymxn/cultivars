@@ -319,7 +319,7 @@ renderOrnament02()
 const ornament03 = document.getElementById('ornament-03')
 const FRUIT_COUNT = 29
 const FRUIT_PATHS = Array.from({ length: FRUIT_COUNT }, (_, i) =>
-  `/src/assets/images/fruit${String(i + 1).padStart(2, '0')}.png`
+  `/images/fruit${String(i + 1).padStart(2, '0')}.png`
 )
 
 function renderFruitCircles() {
