@@ -85,6 +85,12 @@ sunflower.addEventListener('mouseleave', () => {
   section01.classList.remove('spiral-paused')
   sunflower.classList.remove('spinning')
 })
+// sunflower tap: toggle same interaction on touch
+sunflower.addEventListener('touchstart', (e) => {
+  e.preventDefault()
+  section01.classList.toggle('spiral-paused')
+  sunflower.classList.toggle('spinning')
+}, { passive: false })
 
 // ── Section 02: Diamonds ─────────────────────────────────
 
@@ -308,6 +314,26 @@ function renderOrnament02() {
           }, 300)
         }
       })
+      // tap: tint ring then auto-fade
+      tile.addEventListener('touchstart', (e) => {
+        e.preventDefault()
+        const ring = ringMap.get(tile._ring)
+        for (const t of ring) {
+          t._lingerTimer && clearTimeout(t._lingerTimer)
+          t.classList.remove('ornament-02__tile--fading')
+          t.classList.add('ornament-02__tile--tinted')
+        }
+        // auto-fade after a short hold
+        setTimeout(() => {
+          for (const t of ring) {
+            t._lingerTimer = setTimeout(() => {
+              t.classList.remove('ornament-02__tile--tinted')
+              t.classList.add('ornament-02__tile--fading')
+              setTimeout(() => t.classList.remove('ornament-02__tile--fading'), 500)
+            }, 300)
+          }
+        }, 800)
+      }, { passive: false })
     }
   }
 }
@@ -358,7 +384,7 @@ function renderFruitCircles() {
 
       let timer = null
       let blendTimer = null
-      el.addEventListener('mouseenter', () => {
+      function revealCircle() {
         clearTimeout(timer)
         clearTimeout(blendTimer)
         el.classList.remove('ornament-03__circle--flicker', 'ornament-03__circle--blending')
@@ -372,7 +398,12 @@ function renderFruitCircles() {
             el.classList.remove('ornament-03__circle--reveal', 'ornament-03__circle--flicker', 'ornament-03__circle--blending')
           }, { once: true })
         }, 4000)
-      })
+      }
+      el.addEventListener('mouseenter', revealCircle)
+      el.addEventListener('touchstart', (e) => {
+        e.preventDefault()
+        revealCircle()
+      }, { passive: false })
 
       ornament03.appendChild(el)
     }
