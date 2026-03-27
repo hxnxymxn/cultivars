@@ -179,7 +179,7 @@ html, body {
 .ornament-02__tile {
   position: absolute;
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-  background-image: url('/src/assets/images/ornament4.avif');
+  background-image: url('/images/ornament33.avif');
   background-repeat: no-repeat;
   pointer-events: auto;
 }
