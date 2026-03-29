@@ -104,7 +104,7 @@ html, body {
 
 .section-01 {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   width: 100vw;
   height: 130vh;
   margin-bottom: -64px;
@@ -113,10 +113,11 @@ html, body {
 }
 
 .section-01 canvas {
-  position: absolute;
+  position: fixed;
   left: 50%;
   top: 50vh;
   transform: translate(-50%, -50%);
+  z-index: -1;
   animation: spiral-spin 60s linear infinite;
 }
 
@@ -151,9 +152,21 @@ html, body {
   to { transform: translate(-50%, -50%) rotate(360deg); }
 }
 
-.section-02 {
+.interstice {
   position: relative;
   z-index: 3;
+  width: 120vw;
+  left: -10vw;
+  max-height: 700px;
+  background: url('/images/interstice.avif') repeat-x center / auto 100%;
+  filter: saturate(0.8);
+  opacity: 1;
+  pointer-events: none;
+}
+
+.section-02 {
+  position: relative;
+  z-index: 4;
   width: 100%;
   height: 1600px;
   overflow: visible;
@@ -164,23 +177,48 @@ html, body {
   left: 0;
   top: -64px;
   will-change: transform;
+  pointer-events: none;
   filter:
     drop-shadow(0 -4px 4px rgba(0,0,0,0.07))
     drop-shadow(0  4px 4px rgba(0,0,0,0.07));
+}
+
+.center-02 {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 900px;
+  height: 900px;
+  object-fit: contain;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .ornament-02 {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  overflow: hidden;
+  overflow: visible;
+}
+
+.ornament-02-hitbox {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 10;
+}
+
+.ornament-02-hitbox__tile {
+  position: absolute;
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  pointer-events: auto;
+  opacity: 0;
 }
 
 .ornament-02__tile {
   position: absolute;
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
-  background-image: url('/images/ornament33.avif');
-  background-repeat: no-repeat;
   pointer-events: auto;
 }
 
@@ -197,7 +235,7 @@ html, body {
 }
 
 .ornament-02__tile--tinted::after {
-  opacity: 1;
+  opacity: 0.5;
   transition: opacity 0.15s ease;
 }
 
@@ -212,7 +250,6 @@ html, body {
   width: 100%;
   height: 1000px;
   overflow: visible;
-  background: #1A1A1A;
 }
 
 .section-03 canvas {
@@ -276,6 +313,25 @@ html, body {
 
 .ornament-03__circle--flicker img {
   animation: fruit-flicker 0.5s steps(4) forwards;
+}
+
+@media (max-width: 800px) {
+  .center-02 {
+    width: 160vw;
+    height: 160vw;
+  }
+  .interstice {
+    min-height: 400px;
+  }
+  .section-03 {
+    margin-top: -70%;
+  }
+}
+
+@media (max-width: 500px) {
+  .section-02 {
+    height: 800px;
+  }
 }
 
 @keyframes fruit-flicker {

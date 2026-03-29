@@ -86,11 +86,10 @@ sunflower.addEventListener('mouseleave', () => {
   sunflower.classList.remove('spinning')
 })
 // sunflower tap: toggle same interaction on touch
-sunflower.addEventListener('touchstart', (e) => {
-  e.preventDefault()
+sunflower.addEventListener('touchend', () => {
   section01.classList.toggle('spiral-paused')
   sunflower.classList.toggle('spinning')
-}, { passive: false })
+})
 
 // ── Section 02: Diamonds ─────────────────────────────────
 
@@ -225,42 +224,55 @@ function renderAll() {
 
 renderAll()
 
+// ── Interstice image ────────────────────────────────────
+
+const intersticeEl = document.getElementById('interstice')
+
+function positionInterstice() {
+  // load image to get natural aspect ratio, then size the div
+  const img = new Image()
+  img.src = '/images/interstice.avif'
+  img.onload = () => {
+    const aspect = img.naturalHeight / img.naturalWidth
+    const W = window.innerWidth
+    const h = Math.min(W * aspect, 700)
+    intersticeEl.style.height = `${h}px`
+    intersticeEl.style.marginTop = `${-h * 0.5}px`
+    intersticeEl.style.marginBottom = `${-h * 0.5}px`
+  }
+  if (img.complete) img.onload()
+}
+
+positionInterstice()
+window.addEventListener('resize', positionInterstice)
+
 // ── Section 02: Ornament diamond tiles ──────────────────
 
 const ornament02 = document.getElementById('ornament-02')
-const O2_IMG_W = 3077
-const O2_IMG_H = 3789
-const O2_SECTION_H = 1600
+const hitbox02 = document.getElementById('ornament-02-hitbox')
+const section02 = document.querySelector('.section-02')
 
 function renderOrnament02() {
   ornament02.innerHTML = ''
+  hitbox02.innerHTML = ''
 
   const W = window.innerWidth
-  const H = O2_SECTION_H
-
-  // 70% container (reduced 10% from 80%), centered
-  const cw = W * 0.7
-  const ch = H * 0.7
-  const cx0 = W * 0.15
-  const cy0 = H * 0.15
-
-  // contain: fit image within container
-  const scaleW = cw / O2_IMG_W
-  const scaleH = ch / O2_IMG_H
-  const scale = Math.min(scaleW, scaleH)
-  const imgW = O2_IMG_W * scale
-  const imgH = O2_IMG_H * scale
-  // image origin (centered in container)
-  const imgX = cx0 + (cw - imgW) / 2
-  const imgY = cy0 + (ch - imgH) / 2
+  const H = W <= 500 ? 800 : 1600
+  section02.style.height = `${H}px`
 
   // mirror the diamond grid from renderDiamonds (70% sizing)
   const gridOffsetX = W / 2 - Math.round(W / 2 / D_COL) * D_COL
 
-  // group tiles by concentric ring
+  // group visual tiles by concentric ring
   const ringMap = new Map()
   const vcx = W / 2
   const vcy = D_EXTEND + Math.floor(D_ROWS / 2) * D_HALF + D_HALF - 64
+
+  // position birds at ring center
+  const center02 = document.querySelector('.center-02')
+  if (center02) {
+    center02.style.top = `${vcy}px`
+  }
 
   for (let r = 0; r < D_ROWS; r++) {
     const isOdd = r % 2
@@ -268,6 +280,7 @@ function renderOrnament02() {
       const dcx = c * D_SIZE + (isOdd ? D_HALF : 0) + gridOffsetX
       const dcy = D_EXTEND + r * D_HALF + D_HALF - 64
 
+      // visual tile (renders the tint)
       const tile = document.createElement('div')
       tile.className = 'ornament-02__tile'
       tile.style.width = `${D_SIZE}px`
@@ -275,10 +288,13 @@ function renderOrnament02() {
       tile.style.left = `${dcx - D_HALF}px`
       tile.style.top = `${dcy - D_HALF}px`
 
-      const bgX = imgX - (dcx - D_HALF)
-      const bgY = imgY - (dcy - D_HALF)
-      tile.style.backgroundSize = `${imgW}px ${imgH}px`
-      tile.style.backgroundPosition = `${bgX}px ${bgY}px`
+      // invisible hitbox clone (captures pointer events)
+      const hit = document.createElement('div')
+      hit.className = 'ornament-02-hitbox__tile'
+      hit.style.width = `${D_SIZE}px`
+      hit.style.height = `${D_SIZE}px`
+      hit.style.left = `${dcx - D_HALF}px`
+      hit.style.top = `${dcy - D_HALF}px`
 
       // compute ring index (same as canvas diamonds)
       const dist = Math.abs(dcx - vcx) / D_HALF + Math.abs(dcy - vcy) / D_HALF
@@ -286,26 +302,42 @@ function renderOrnament02() {
 
       if (!ringMap.has(ring)) ringMap.set(ring, [])
       ringMap.get(ring).push(tile)
-      tile._ring = ring
+      hit._ring = ring
 
       ornament02.appendChild(tile)
+      hitbox02.appendChild(hit)
     }
   }
 
-  // hover: tint entire concentric ring (inner 8 rings only)
-  for (const [ringIdx, tiles] of ringMap) {
-    if (ringIdx > 7) continue
-    for (const tile of tiles) {
-      tile.addEventListener('mouseenter', () => {
-        const ring = ringMap.get(tile._ring)
-        for (const t of ring) {
-          t._lingerTimer && clearTimeout(t._lingerTimer)
-          t.classList.remove('ornament-02__tile--fading')
-          t.classList.add('ornament-02__tile--tinted')
-        }
-      })
-      tile.addEventListener('mouseleave', () => {
-        const ring = ringMap.get(tile._ring)
+  // hover on hitbox clones → tint visual tiles in the same ring
+  const hitTiles = hitbox02.querySelectorAll('.ornament-02-hitbox__tile')
+  for (const hit of hitTiles) {
+    hit.addEventListener('mouseenter', () => {
+      const ring = ringMap.get(hit._ring)
+      for (const t of ring) {
+        t._lingerTimer && clearTimeout(t._lingerTimer)
+        t.classList.remove('ornament-02__tile--fading')
+        t.classList.add('ornament-02__tile--tinted')
+      }
+    })
+    hit.addEventListener('mouseleave', () => {
+      const ring = ringMap.get(hit._ring)
+      for (const t of ring) {
+        t._lingerTimer = setTimeout(() => {
+          t.classList.remove('ornament-02__tile--tinted')
+          t.classList.add('ornament-02__tile--fading')
+          setTimeout(() => t.classList.remove('ornament-02__tile--fading'), 500)
+        }, 300)
+      }
+    })
+    hit.addEventListener('touchend', () => {
+      const ring = ringMap.get(hit._ring)
+      for (const t of ring) {
+        t._lingerTimer && clearTimeout(t._lingerTimer)
+        t.classList.remove('ornament-02__tile--fading')
+        t.classList.add('ornament-02__tile--tinted')
+      }
+      setTimeout(() => {
         for (const t of ring) {
           t._lingerTimer = setTimeout(() => {
             t.classList.remove('ornament-02__tile--tinted')
@@ -313,28 +345,8 @@ function renderOrnament02() {
             setTimeout(() => t.classList.remove('ornament-02__tile--fading'), 500)
           }, 300)
         }
-      })
-      // tap: tint ring then auto-fade
-      tile.addEventListener('touchstart', (e) => {
-        e.preventDefault()
-        const ring = ringMap.get(tile._ring)
-        for (const t of ring) {
-          t._lingerTimer && clearTimeout(t._lingerTimer)
-          t.classList.remove('ornament-02__tile--fading')
-          t.classList.add('ornament-02__tile--tinted')
-        }
-        // auto-fade after a short hold
-        setTimeout(() => {
-          for (const t of ring) {
-            t._lingerTimer = setTimeout(() => {
-              t.classList.remove('ornament-02__tile--tinted')
-              t.classList.add('ornament-02__tile--fading')
-              setTimeout(() => t.classList.remove('ornament-02__tile--fading'), 500)
-            }, 300)
-          }
-        }, 800)
-      }, { passive: false })
-    }
+      }, 800)
+    })
   }
 }
 
@@ -400,10 +412,9 @@ function renderFruitCircles() {
         }, 4000)
       }
       el.addEventListener('mouseenter', revealCircle)
-      el.addEventListener('touchstart', (e) => {
-        e.preventDefault()
+      el.addEventListener('touchend', () => {
         revealCircle()
-      }, { passive: false })
+      })
 
       ornament03.appendChild(el)
     }
