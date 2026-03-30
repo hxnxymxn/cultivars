@@ -500,10 +500,14 @@ function renderAllWithOrnaments() {
   renderFruitCircles()
 }
 
+let lastWidth = window.innerWidth
 let resizeTimer = null
 const resizeOverlay = document.getElementById('resize-overlay')
 
 window.addEventListener('resize', () => {
+  const newWidth = window.innerWidth
+  if (newWidth === lastWidth) return
+  lastWidth = newWidth
   resizeOverlay.classList.add('resize-overlay--active')
   clearTimeout(resizeTimer)
   resizeTimer = setTimeout(() => {
