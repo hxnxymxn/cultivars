@@ -335,6 +335,9 @@ html, body {
     width: 160vw;
     height: 160vw;
   }
+  .section-03 {
+    height: 2000px;
+  }
 }
 
 @media (max-width: 500px) {

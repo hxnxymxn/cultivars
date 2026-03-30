@@ -208,7 +208,7 @@ function drawCirclePattern(ctx, W, H, gridOffsetX, yOffset) {
 
 function renderFlowers() {
   const W = window.innerWidth
-  const H = 1000
+  const H = W <= 800 ? 2000 : 1000
   const gridOffsetX = W / 2 - Math.round(W / 2 / COL) * COL
 
   fCanvas.width = W
@@ -328,53 +328,71 @@ function renderOrnament02() {
     }
   }
 
-  // smooth auto-pulse on all viewports
-  ornament02.classList.add('ornament-02--pulse')
   const maxRing = Math.max(...ringMap.keys())
-  const PULSE_SPEED = W <= 800 ? 6 : 3
-  const PULSE_WIDTH = 3
-
-  const rings = []
-  for (let i = 0; i <= maxRing; i++) {
-    rings.push(ringMap.get(i) || [])
-  }
+  const isMobile = W <= 744
 
   if (pulseRaf) cancelAnimationFrame(pulseRaf)
-  let pulseStart = null
+  pulseRaf = null
 
-  // track which rings are hovered (desktop only)
-  const hoveredRings = new Set()
+  if (isMobile) {
+    // mobile: smooth auto-pulse
+    ornament02.classList.add('ornament-02--pulse')
+    const PULSE_SPEED = 6
+    const PULSE_WIDTH = 3
 
-  function animatePulse(ts) {
-    if (!pulseStart) pulseStart = ts
-    const elapsed = (ts - pulseStart) / 1000
-    const pos = (elapsed * PULSE_SPEED) % (maxRing + PULSE_WIDTH * 2)
-
+    const rings = []
     for (let i = 0; i <= maxRing; i++) {
-      const dist = Math.abs(i - pos)
-      const pulseOpacity = Math.max(0, 0.5 * Math.exp(-(dist * dist) / (2 * PULSE_WIDTH)))
-      // hover overrides pulse with higher opacity
-      const opacity = hoveredRings.has(i) ? 0.5 : pulseOpacity
-      const tiles = rings[i]
-      for (let j = 0; j < tiles.length; j++) {
-        tiles[j].style.setProperty('--pulse', opacity)
-      }
+      rings.push(ringMap.get(i) || [])
     }
 
+    const PAUSE = 2 // seconds pause between cycles
+    const cycleRings = maxRing + PULSE_WIDTH * 2
+    const cycleTime = cycleRings / PULSE_SPEED
+    const totalCycle = cycleTime + PAUSE
+
+    let pulseStart = null
+    function animatePulse(ts) {
+      if (!pulseStart) pulseStart = ts
+      const elapsed = (ts - pulseStart) / 1000
+      const inCycle = elapsed % totalCycle
+
+      for (let i = 0; i <= maxRing; i++) {
+        let opacity = 0
+        if (inCycle < cycleTime) {
+          const pos = inCycle * PULSE_SPEED
+          const dist = Math.abs(i - pos)
+          opacity = Math.max(0, 0.5 * Math.exp(-(dist * dist) / (2 * PULSE_WIDTH)))
+        }
+        const tiles = rings[i]
+        for (let j = 0; j < tiles.length; j++) {
+          tiles[j].style.setProperty('--pulse', opacity)
+        }
+      }
+      pulseRaf = requestAnimationFrame(animatePulse)
+    }
     pulseRaf = requestAnimationFrame(animatePulse)
-  }
-
-  pulseRaf = requestAnimationFrame(animatePulse)
-
-  // desktop: hover boosts ring opacity on top of pulse
-  if (W > 800) {
+  } else {
+    // desktop: hover only
+    ornament02.classList.remove('ornament-02--pulse')
     const hitTiles = hitbox02.querySelectorAll('.ornament-02-hitbox__tile')
     for (const hit of hitTiles) {
       hit.addEventListener('mouseenter', () => {
-        hoveredRings.add(hit._ring)
+        const ring = ringMap.get(hit._ring)
+        for (const t of ring) {
+          t._lingerTimer && clearTimeout(t._lingerTimer)
+          t.classList.remove('ornament-02__tile--fading')
+          t.classList.add('ornament-02__tile--tinted')
+        }
       })
       hit.addEventListener('mouseleave', () => {
-        hoveredRings.delete(hit._ring)
+        const ring = ringMap.get(hit._ring)
+        for (const t of ring) {
+          t._lingerTimer = setTimeout(() => {
+            t.classList.remove('ornament-02__tile--tinted')
+            t.classList.add('ornament-02__tile--fading')
+            setTimeout(() => t.classList.remove('ornament-02__tile--fading'), 500)
+          }, 300)
+        }
       })
     }
   }
@@ -395,7 +413,7 @@ function renderFruitCircles() {
   ornament03.innerHTML = ''
 
   const W = window.innerWidth
-  const H = 1000
+  const H = W <= 800 ? 2000 : 1000
   const gridOffsetX = W / 2 - Math.round(W / 2 / COL) * COL
 
   const colCount = Math.ceil(W / F_S) + 4
