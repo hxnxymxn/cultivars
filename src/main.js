@@ -86,7 +86,11 @@ sunflower.addEventListener('mouseleave', () => {
   sunflower.classList.remove('spinning')
 })
 // sunflower tap: toggle same interaction on touch
+let sfTouchMoved = false
+sunflower.addEventListener('touchstart', () => { sfTouchMoved = false }, { passive: true })
+sunflower.addEventListener('touchmove', () => { sfTouchMoved = true }, { passive: true })
 sunflower.addEventListener('touchend', () => {
+  if (sfTouchMoved) return
   section01.classList.toggle('spiral-paused')
   sunflower.classList.toggle('spinning')
 })
@@ -229,22 +233,37 @@ renderAll()
 const intersticeEl = document.getElementById('interstice')
 
 function positionInterstice() {
-  // load image to get natural aspect ratio, then size the div
-  const img = new Image()
-  img.src = '/images/interstice.avif'
-  img.onload = () => {
-    const aspect = img.naturalHeight / img.naturalWidth
-    const W = window.innerWidth
-    const h = Math.min(W * aspect, 700)
-    intersticeEl.style.height = `${h}px`
-    intersticeEl.style.marginTop = `${-h * 0.5}px`
-    intersticeEl.style.marginBottom = `${-h * 0.5}px`
-  }
-  if (img.complete) img.onload()
+  const h = 595
+  intersticeEl.style.marginTop = `${-h * 0.5}px`
+  intersticeEl.style.marginBottom = `${-h * 0.5}px`
 }
 
 positionInterstice()
 window.addEventListener('resize', positionInterstice)
+
+// interstice parallax: rise 10% then plunge faster than scroll
+function updateIntersticeParallax() {
+  const rect = intersticeEl.getBoundingClientRect()
+  const vh = window.innerHeight
+  // progress: 0 when entering viewport bottom, 1 when leaving top
+  const progress = 1 - (rect.top + rect.height) / (vh + rect.height)
+  if (progress < 0 || progress > 1) return
+  // rise up 10% of height, then rapidly drop at 2.5x rate
+  const riseEnd = 0.1
+  let yShift
+  if (progress <= riseEnd) {
+    // rising phase: move up as we scroll into view
+    yShift = -(progress / riseEnd) * rect.height * 0.1
+  } else {
+    // plunge phase: drop fast
+    const plungeProgress = (progress - riseEnd) / (1 - riseEnd)
+    yShift = -rect.height * 0.1 + plungeProgress * rect.height * 0.6
+  }
+  intersticeEl.style.transform = `translateY(${yShift}px)`
+}
+
+window.addEventListener('scroll', updateIntersticeParallax, { passive: true })
+updateIntersticeParallax()
 
 // ── Section 02: Ornament diamond tiles ──────────────────
 
@@ -330,7 +349,11 @@ function renderOrnament02() {
         }, 300)
       }
     })
+    let touchMoved = false
+    hit.addEventListener('touchstart', () => { touchMoved = false }, { passive: true })
+    hit.addEventListener('touchmove', () => { touchMoved = true }, { passive: true })
     hit.addEventListener('touchend', () => {
+      if (touchMoved) return
       const ring = ringMap.get(hit._ring)
       for (const t of ring) {
         t._lingerTimer && clearTimeout(t._lingerTimer)
@@ -412,8 +435,11 @@ function renderFruitCircles() {
         }, 4000)
       }
       el.addEventListener('mouseenter', revealCircle)
+      let fruitTouchMoved = false
+      el.addEventListener('touchstart', () => { fruitTouchMoved = false }, { passive: true })
+      el.addEventListener('touchmove', () => { fruitTouchMoved = true }, { passive: true })
       el.addEventListener('touchend', () => {
-        revealCircle()
+        if (!fruitTouchMoved) revealCircle()
       })
 
       ornament03.appendChild(el)
