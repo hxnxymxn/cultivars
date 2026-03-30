@@ -328,51 +328,59 @@ function renderOrnament02() {
     }
   }
 
-  // hover on hitbox clones → tint visual tiles in the same ring
-  const hitTiles = hitbox02.querySelectorAll('.ornament-02-hitbox__tile')
-  for (const hit of hitTiles) {
-    hit.addEventListener('mouseenter', () => {
-      const ring = ringMap.get(hit._ring)
-      for (const t of ring) {
-        t._lingerTimer && clearTimeout(t._lingerTimer)
-        t.classList.remove('ornament-02__tile--fading')
-        t.classList.add('ornament-02__tile--tinted')
+  // smooth auto-pulse on all viewports
+  ornament02.classList.add('ornament-02--pulse')
+  const maxRing = Math.max(...ringMap.keys())
+  const PULSE_SPEED = W <= 800 ? 6 : 3
+  const PULSE_WIDTH = 3
+
+  const rings = []
+  for (let i = 0; i <= maxRing; i++) {
+    rings.push(ringMap.get(i) || [])
+  }
+
+  if (pulseRaf) cancelAnimationFrame(pulseRaf)
+  let pulseStart = null
+
+  // track which rings are hovered (desktop only)
+  const hoveredRings = new Set()
+
+  function animatePulse(ts) {
+    if (!pulseStart) pulseStart = ts
+    const elapsed = (ts - pulseStart) / 1000
+    const pos = (elapsed * PULSE_SPEED) % (maxRing + PULSE_WIDTH * 2)
+
+    for (let i = 0; i <= maxRing; i++) {
+      const dist = Math.abs(i - pos)
+      const pulseOpacity = Math.max(0, 0.5 * Math.exp(-(dist * dist) / (2 * PULSE_WIDTH)))
+      // hover overrides pulse with higher opacity
+      const opacity = hoveredRings.has(i) ? 0.5 : pulseOpacity
+      const tiles = rings[i]
+      for (let j = 0; j < tiles.length; j++) {
+        tiles[j].style.setProperty('--pulse', opacity)
       }
-    })
-    hit.addEventListener('mouseleave', () => {
-      const ring = ringMap.get(hit._ring)
-      for (const t of ring) {
-        t._lingerTimer = setTimeout(() => {
-          t.classList.remove('ornament-02__tile--tinted')
-          t.classList.add('ornament-02__tile--fading')
-          setTimeout(() => t.classList.remove('ornament-02__tile--fading'), 500)
-        }, 300)
-      }
-    })
-    let touchMoved = false
-    hit.addEventListener('touchstart', () => { touchMoved = false }, { passive: true })
-    hit.addEventListener('touchmove', () => { touchMoved = true }, { passive: true })
-    hit.addEventListener('touchend', () => {
-      if (touchMoved) return
-      const ring = ringMap.get(hit._ring)
-      for (const t of ring) {
-        t._lingerTimer && clearTimeout(t._lingerTimer)
-        t.classList.remove('ornament-02__tile--fading')
-        t.classList.add('ornament-02__tile--tinted')
-      }
-      setTimeout(() => {
-        for (const t of ring) {
-          t._lingerTimer = setTimeout(() => {
-            t.classList.remove('ornament-02__tile--tinted')
-            t.classList.add('ornament-02__tile--fading')
-            setTimeout(() => t.classList.remove('ornament-02__tile--fading'), 500)
-          }, 300)
-        }
-      }, 800)
-    })
+    }
+
+    pulseRaf = requestAnimationFrame(animatePulse)
+  }
+
+  pulseRaf = requestAnimationFrame(animatePulse)
+
+  // desktop: hover boosts ring opacity on top of pulse
+  if (W > 800) {
+    const hitTiles = hitbox02.querySelectorAll('.ornament-02-hitbox__tile')
+    for (const hit of hitTiles) {
+      hit.addEventListener('mouseenter', () => {
+        hoveredRings.add(hit._ring)
+      })
+      hit.addEventListener('mouseleave', () => {
+        hoveredRings.delete(hit._ring)
+      })
+    }
   }
 }
 
+let pulseRaf = null
 renderOrnament02()
 
 // ── Section 03: Fruit circles ───────────────────────────
@@ -458,6 +466,17 @@ function renderAllWithOrnaments() {
 }
 
 window.addEventListener('resize', renderAllWithOrnaments)
+
+// ── Scroll perf: disable hitbox pointer-events while scrolling ──
+
+let scrollTimer = null
+window.addEventListener('scroll', () => {
+  if (!hitbox02.style.pointerEvents) hitbox02.style.pointerEvents = 'none'
+  clearTimeout(scrollTimer)
+  scrollTimer = setTimeout(() => {
+    hitbox02.style.pointerEvents = ''
+  }, 150)
+}, { passive: true })
 
 // ── Section 01: Ornament parallax ───────────────────────
 
