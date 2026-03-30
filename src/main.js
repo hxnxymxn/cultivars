@@ -122,8 +122,8 @@ function drawDiamond(ctx, cx, cy, half, fill) {
   ctx.closePath()
   ctx.fillStyle = fill
   ctx.fill()
-  ctx.strokeStyle = '#1B1B1B'
-  ctx.lineWidth = 1
+  ctx.strokeStyle = 'rgba(217, 217, 217, 0.10)'
+  ctx.lineWidth = 0.5
   ctx.stroke()
 }
 
@@ -241,6 +241,21 @@ function positionInterstice() {
 positionInterstice()
 window.addEventListener('resize', positionInterstice)
 
+// interstice hover/tap: jack saturation + blue
+intersticeEl.addEventListener('mouseenter', () => {
+  intersticeEl.classList.add('interstice--hot')
+})
+intersticeEl.addEventListener('mouseleave', () => {
+  intersticeEl.classList.remove('interstice--hot')
+})
+let intTouchMoved = false
+intersticeEl.addEventListener('touchstart', () => { intTouchMoved = false }, { passive: true })
+intersticeEl.addEventListener('touchmove', () => { intTouchMoved = true }, { passive: true })
+intersticeEl.addEventListener('touchend', () => {
+  if (intTouchMoved) return
+  intersticeEl.classList.toggle('interstice--hot')
+})
+
 // interstice parallax: rise 10% then plunge faster than scroll
 function updateIntersticeParallax() {
   const rect = intersticeEl.getBoundingClientRect()
@@ -269,6 +284,8 @@ updateIntersticeParallax()
 
 const ornament02 = document.getElementById('ornament-02')
 const hitbox02 = document.getElementById('ornament-02-hitbox')
+const borderCanvas = document.getElementById('diamond-borders')
+const borderCtx = borderCanvas.getContext('2d')
 const section02 = document.querySelector('.section-02')
 
 function renderOrnament02() {
@@ -282,8 +299,9 @@ function renderOrnament02() {
   // mirror the diamond grid from renderDiamonds (70% sizing)
   const gridOffsetX = W / 2 - Math.round(W / 2 / D_COL) * D_COL
 
-  // group visual tiles by concentric ring
+  // group visual tiles by concentric ring, also store centers for border drawing
   const ringMap = new Map()
+  const ringCenters = new Map()
   const vcx = W / 2
   const vcy = D_EXTEND + Math.floor(D_ROWS / 2) * D_HALF + D_HALF - 64
 
@@ -319,12 +337,55 @@ function renderOrnament02() {
       const dist = Math.abs(dcx - vcx) / D_HALF + Math.abs(dcy - vcy) / D_HALF
       const ring = Math.floor(dist / 2)
 
-      if (!ringMap.has(ring)) ringMap.set(ring, [])
+      if (!ringMap.has(ring)) { ringMap.set(ring, []); ringCenters.set(ring, []) }
       ringMap.get(ring).push(tile)
+      ringCenters.get(ring).push({ x: dcx, y: dcy })
       hit._ring = ring
 
       ornament02.appendChild(tile)
       hitbox02.appendChild(hit)
+    }
+  }
+
+  // set up border canvas (same size/position as diamond canvas)
+  borderCanvas.width = dCanvas.width
+  borderCanvas.height = dCanvas.height
+  const hoveredRings = new Set()
+
+  function drawBorders() {
+    borderCtx.clearRect(0, 0, borderCanvas.width, borderCanvas.height)
+    // build set of active diamond centers for neighbor lookup
+    const activeSet = new Set()
+    for (const ringIdx of hoveredRings) {
+      const centers = ringCenters.get(ringIdx)
+      if (!centers) continue
+      for (const { x, y } of centers) {
+        activeSet.add(`${x},${y}`)
+      }
+    }
+
+    borderCtx.strokeStyle = 'rgba(131, 203, 252, 0.21)'
+    for (const ringIdx of hoveredRings) {
+      const centers = ringCenters.get(ringIdx)
+      if (!centers) continue
+      for (const { x, y } of centers) {
+        const cx = x + 0.5
+        const cy = y + 64 + 0.5
+        // each edge: check if neighbor sharing that edge is also active
+        const edges = [
+          { from: [cx, cy - D_HALF], to: [cx + D_HALF, cy], neighbor: `${x + D_HALF},${y - D_HALF}` },
+          { from: [cx + D_HALF, cy], to: [cx, cy + D_HALF], neighbor: `${x + D_HALF},${y + D_HALF}` },
+          { from: [cx, cy + D_HALF], to: [cx - D_HALF, cy], neighbor: `${x - D_HALF},${y + D_HALF}` },
+          { from: [cx - D_HALF, cy], to: [cx, cy - D_HALF], neighbor: `${x - D_HALF},${y - D_HALF}` },
+        ]
+        for (const edge of edges) {
+          borderCtx.lineWidth = activeSet.has(edge.neighbor) ? 0.5 : 1
+          borderCtx.beginPath()
+          borderCtx.moveTo(edge.from[0], edge.from[1])
+          borderCtx.lineTo(edge.to[0], edge.to[1])
+          borderCtx.stroke()
+        }
+      }
     }
   }
 
@@ -379,10 +440,14 @@ function renderOrnament02() {
       hit.addEventListener('mouseenter', () => {
         const ring = ringMap.get(hit._ring)
         for (const t of ring) t.classList.add('ornament-02__tile--tinted')
+        hoveredRings.add(hit._ring)
+        drawBorders()
       })
       hit.addEventListener('mouseleave', () => {
         const ring = ringMap.get(hit._ring)
         for (const t of ring) t.classList.remove('ornament-02__tile--tinted')
+        hoveredRings.delete(hit._ring)
+        drawBorders()
       })
     }
   }
@@ -413,10 +478,16 @@ function renderFruitCircles() {
       const cx = c * F_S + gridOffsetX + HALF
       const cy = r * F_S
 
+      const PAD = window.innerWidth <= 800 ? 30 : 20
       const el = document.createElement('div')
       el.className = 'ornament-03__circle'
       el.style.left = `${cx - 64}px`
       el.style.top = `${cy - 64}px`
+
+      // invisible hit area extending beyond the circle
+      const hitArea = document.createElement('div')
+      hitArea.style.cssText = `position:absolute;inset:${-PAD}px;border-radius:10000px;pointer-events:auto;`
+      el.appendChild(hitArea)
 
       const fruitSrc = FRUIT_PATHS[Math.floor(Math.random() * FRUIT_COUNT)]
       const img = document.createElement('img')
