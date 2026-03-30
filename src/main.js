@@ -1,7 +1,5 @@
 import './styles/main.css'
 
-import './styles/main.css'
-
 // ── Constants ────────────────────────────────────────────
 
 const COL = 64
@@ -15,8 +13,6 @@ const EXTEND = HALF
 
 const spiralCanvas = document.getElementById('spiral')
 const spiralCtx = spiralCanvas.getContext('2d')
-const section01 = document.querySelector('.section-01')
-const sunflower = document.getElementById('sunflower')
 
 const S_DARK = '#111111'
 const S_LIGHT = '#1E1E1E'
@@ -75,25 +71,6 @@ function renderSpiral() {
     spiralCtx.fill()
   }
 }
-
-// sunflower hover: pause spiral, spin sunflower
-sunflower.addEventListener('mouseenter', () => {
-  section01.classList.add('spiral-paused')
-  sunflower.classList.add('spinning')
-})
-sunflower.addEventListener('mouseleave', () => {
-  section01.classList.remove('spiral-paused')
-  sunflower.classList.remove('spinning')
-})
-// sunflower tap: toggle same interaction on touch
-let sfTouchMoved = false
-sunflower.addEventListener('touchstart', () => { sfTouchMoved = false }, { passive: true })
-sunflower.addEventListener('touchmove', () => { sfTouchMoved = true }, { passive: true })
-sunflower.addEventListener('touchend', () => {
-  if (sfTouchMoved) return
-  section01.classList.toggle('spiral-paused')
-  sunflower.classList.toggle('spinning')
-})
 
 // ── Section 02: Diamonds ─────────────────────────────────
 
@@ -155,8 +132,8 @@ const fCanvas = document.getElementById('flowers')
 const fCtx = fCanvas.getContext('2d')
 const F_S = SIZE
 const F_R = F_S / 2
-const F_DARK = '#181818'
-const F_LIGHT = '#222222'
+const F_DARK = '#262626'
+const F_LIGHT = '#1F1F1F'
 
 function drawCirclePattern(ctx, W, H, gridOffsetX, yOffset) {
   const colCount = Math.ceil(W / F_S) + 4
@@ -228,73 +205,19 @@ function renderAll() {
 
 renderAll()
 
-// ── Interstice image ────────────────────────────────────
-
-const intersticeEl = document.getElementById('interstice')
-
-function positionInterstice() {
-  const h = 595
-  intersticeEl.style.marginTop = `${-h * 0.5}px`
-  intersticeEl.style.marginBottom = `${-h * 0.5}px`
-}
-
-positionInterstice()
-window.addEventListener('resize', positionInterstice)
-
-// interstice hover/tap: jack saturation + blue
-intersticeEl.addEventListener('mouseenter', () => {
-  intersticeEl.classList.add('interstice--hot')
-})
-intersticeEl.addEventListener('mouseleave', () => {
-  intersticeEl.classList.remove('interstice--hot')
-})
-let intTouchMoved = false
-intersticeEl.addEventListener('touchstart', () => { intTouchMoved = false }, { passive: true })
-intersticeEl.addEventListener('touchmove', () => { intTouchMoved = true }, { passive: true })
-intersticeEl.addEventListener('touchend', () => {
-  if (intTouchMoved) return
-  intersticeEl.classList.toggle('interstice--hot')
-})
-
-// interstice parallax: rise 10% then plunge faster than scroll
-function updateIntersticeParallax() {
-  const rect = intersticeEl.getBoundingClientRect()
-  const vh = window.innerHeight
-  // progress: 0 when entering viewport bottom, 1 when leaving top
-  const progress = 1 - (rect.top + rect.height) / (vh + rect.height)
-  if (progress < 0 || progress > 1) return
-  // rise up 10% of height, then rapidly drop at 2.5x rate
-  const riseEnd = 0.1
-  let yShift
-  if (progress <= riseEnd) {
-    // rising phase: move up as we scroll into view
-    yShift = -(progress / riseEnd) * rect.height * 0.1
-  } else {
-    // plunge phase: drop fast
-    const plungeProgress = (progress - riseEnd) / (1 - riseEnd)
-    yShift = -rect.height * 0.1 + plungeProgress * rect.height * 0.6
-  }
-  intersticeEl.style.transform = `translateY(${yShift}px)`
-}
-
-window.addEventListener('scroll', updateIntersticeParallax, { passive: true })
-updateIntersticeParallax()
-
 // ── Section 02: Ornament diamond tiles ──────────────────
 
 const ornament02 = document.getElementById('ornament-02')
 const hitbox02 = document.getElementById('ornament-02-hitbox')
 const borderCanvas = document.getElementById('diamond-borders')
 const borderCtx = borderCanvas.getContext('2d')
-const section02 = document.querySelector('.section-02')
+
 
 function renderOrnament02() {
   ornament02.innerHTML = ''
   hitbox02.innerHTML = ''
 
   const W = window.innerWidth
-  const H = W <= 500 ? 800 : 1600
-  section02.style.height = `${H}px`
 
   // mirror the diamond grid from renderDiamonds (70% sizing)
   const gridOffsetX = W / 2 - Math.round(W / 2 / D_COL) * D_COL
@@ -338,9 +261,13 @@ function renderOrnament02() {
       const ring = Math.floor(dist / 2)
 
       if (!ringMap.has(ring)) { ringMap.set(ring, []); ringCenters.set(ring, []) }
+      // store gradient angle from center for diffuse neighbor effect
+      const gradAngle = Math.atan2(dcx - vcx, -(dcy - vcy)) * (180 / Math.PI)
+      tile._gradAngle = gradAngle
+      tile._isCorner = Math.min(Math.abs(dcx - vcx), Math.abs(dcy - vcy)) < D_HALF
       ringMap.get(ring).push(tile)
       ringCenters.get(ring).push({ x: dcx, y: dcy })
-      hit._ring = ring
+      hit.dataset.ring = String(ring)
 
       ornament02.appendChild(tile)
       hitbox02.appendChild(hit)
@@ -352,26 +279,34 @@ function renderOrnament02() {
   borderCanvas.height = dCanvas.height
   const hoveredRings = new Set()
 
+  // build position → ring index lookup for neighbor checks
+  const posToRing = new Map()
+  for (const [ringIdx, centers] of ringCenters) {
+    for (const { x, y } of centers) {
+      posToRing.set(`${x},${y}`, ringIdx)
+    }
+  }
+
   function drawBorders() {
     borderCtx.clearRect(0, 0, borderCanvas.width, borderCanvas.height)
-    // build set of active diamond centers for neighbor lookup
+    if (hoveredRings.size === 0) return
+
+    borderCtx.strokeStyle = 'rgba(131, 203, 252, 0.12)'
+
+    // build set of active centers for shared-edge detection
     const activeSet = new Set()
     for (const ringIdx of hoveredRings) {
       const centers = ringCenters.get(ringIdx)
       if (!centers) continue
-      for (const { x, y } of centers) {
-        activeSet.add(`${x},${y}`)
-      }
+      for (const { x, y } of centers) activeSet.add(`${x},${y}`)
     }
 
-    borderCtx.strokeStyle = 'rgba(131, 203, 252, 0.21)'
     for (const ringIdx of hoveredRings) {
       const centers = ringCenters.get(ringIdx)
       if (!centers) continue
       for (const { x, y } of centers) {
         const cx = x + 0.5
         const cy = y + 64 + 0.5
-        // each edge: check if neighbor sharing that edge is also active
         const edges = [
           { from: [cx, cy - D_HALF], to: [cx + D_HALF, cy], neighbor: `${x + D_HALF},${y - D_HALF}` },
           { from: [cx + D_HALF, cy], to: [cx, cy + D_HALF], neighbor: `${x + D_HALF},${y + D_HALF}` },
@@ -389,7 +324,7 @@ function renderOrnament02() {
     }
   }
 
-  const maxRing = Math.max(...ringMap.keys())
+  const maxRing = Math.max(...Array.from(ringMap.keys()))
   const isMobile = W <= 744
 
   if (pulseRaf) cancelAnimationFrame(pulseRaf)
@@ -438,15 +373,32 @@ function renderOrnament02() {
     const hitTiles = hitbox02.querySelectorAll('.ornament-02-hitbox__tile')
     for (const hit of hitTiles) {
       hit.addEventListener('mouseenter', () => {
-        const ring = ringMap.get(hit._ring)
+        const idx = parseInt(hit.dataset.ring)
+        const ring = ringMap.get(idx)
         for (const t of ring) t.classList.add('ornament-02__tile--tinted')
-        hoveredRings.add(hit._ring)
+        // diffuse neighbors with gradient
+        const inner = ringMap.get(idx - 1)
+        const outer = ringMap.get(idx + 1)
+        if (inner) for (const t of inner) {
+          t.style.setProperty('--grad', `${t._gradAngle + 180}deg`)
+          t.classList.add('ornament-02__tile--tinted-diffuse')
+        }
+        if (outer) for (const t of outer) {
+          t.style.setProperty('--grad', `${t._gradAngle}deg`)
+          t.classList.add('ornament-02__tile--tinted-diffuse')
+        }
+        hoveredRings.add(idx)
         drawBorders()
       })
       hit.addEventListener('mouseleave', () => {
-        const ring = ringMap.get(hit._ring)
+        const idx = parseInt(hit.dataset.ring)
+        const ring = ringMap.get(idx)
         for (const t of ring) t.classList.remove('ornament-02__tile--tinted')
-        hoveredRings.delete(hit._ring)
+        const inner = ringMap.get(idx - 1)
+        const outer = ringMap.get(idx + 1)
+        if (inner) for (const t of inner) t.classList.remove('ornament-02__tile--tinted-diffuse')
+        if (outer) for (const t of outer) t.classList.remove('ornament-02__tile--tinted-diffuse')
+        hoveredRings.delete(idx)
         drawBorders()
       })
     }
@@ -463,6 +415,7 @@ const FRUIT_COUNT = 29
 const FRUIT_PATHS = Array.from({ length: FRUIT_COUNT }, (_, i) =>
   `/images/fruit${String(i + 1).padStart(2, '0')}.png`
 )
+const fruitAssignments = new Map()
 
 function renderFruitCircles() {
   ornament03.innerHTML = ''
@@ -471,14 +424,13 @@ function renderFruitCircles() {
   const H = W <= 800 ? 2000 : 1000
   const gridOffsetX = W / 2 - Math.round(W / 2 / COL) * COL
 
+  const PAD = W <= 800 ? 30 : 20
   const colCount = Math.ceil(W / F_S) + 4
   const rowCount = Math.ceil(H / F_S) + 2
   for (let r = -1; r < rowCount + 1; r++) {
     for (let c = -2; c < colCount + 2; c++) {
       const cx = c * F_S + gridOffsetX + HALF
       const cy = r * F_S
-
-      const PAD = window.innerWidth <= 800 ? 30 : 20
       const el = document.createElement('div')
       el.className = 'ornament-03__circle'
       el.style.left = `${cx - 64}px`
@@ -489,7 +441,11 @@ function renderFruitCircles() {
       hitArea.style.cssText = `position:absolute;inset:${-PAD}px;border-radius:10000px;pointer-events:auto;`
       el.appendChild(hitArea)
 
-      const fruitSrc = FRUIT_PATHS[Math.floor(Math.random() * FRUIT_COUNT)]
+      const key = `${r},${c}`
+      if (!fruitAssignments.has(key)) {
+        fruitAssignments.set(key, FRUIT_PATHS[Math.floor(Math.random() * FRUIT_COUNT)])
+      }
+      const fruitSrc = fruitAssignments.get(key)
       const img = document.createElement('img')
       img.src = fruitSrc
       img.alt = ''
@@ -544,7 +500,20 @@ function renderAllWithOrnaments() {
   renderFruitCircles()
 }
 
-window.addEventListener('resize', renderAllWithOrnaments)
+let resizeTimer = null
+const resizeOverlay = document.getElementById('resize-overlay')
+
+window.addEventListener('resize', () => {
+  resizeOverlay.classList.add('resize-overlay--active')
+  clearTimeout(resizeTimer)
+  resizeTimer = setTimeout(() => {
+    renderAllWithOrnaments()
+    resizeOverlay.classList.remove('resize-overlay--active')
+  }, 200)
+})
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) renderAllWithOrnaments()
+})
 
 // ── Scroll perf: disable hitbox pointer-events while scrolling ──
 
@@ -557,65 +526,4 @@ window.addEventListener('scroll', () => {
   }, 150)
 }, { passive: true })
 
-// ── Section 01: Ornament parallax ───────────────────────
 
-const PARALLAX_RATE = 0.35
-
-function updateOrnamentParallax() {
-  const scrollY = window.scrollY
-  const yShift = scrollY * PARALLAX_RATE
-  ornamentGrid.style.transform = `translateX(-50%) translateY(${yShift}px)`
-}
-
-updateOrnamentParallax()
-window.addEventListener('scroll', updateOrnamentParallax, { passive: true })
-
-import { 
-  ArrowLeft,
-  ArrowRight,
-  ArrowDown,
-  ArrowDownLeft,
-  ArrowDownRight,
-  ArrowUp,
-  ArrowUpLeft,
-  ArrowUpRight,
-  ChevronRight,
-  ChevronLeft,
-  ChevronDown,
-  ChevronUp,
-  Check,
-  ChessKnight,
-  Code,
-  CodeXml,
-  Download,
-  DraftingCompass,
-  EllipsisVertical,
-  Expand,
-  ExternalLink,
-  Eye,
-  EyeClosed,
-  Grip,
-  GripHorizontal,
-  GripVertical,
-  HatGlasses,
-  Leaf,
-  LeafyGreen,
-  Link,
-  Mail,
-  Moon,
-  MousePointer,
-  Palette,
-  Pilcrow,
-  Rose,
-  Scroll,
-  Sliders,
-  SlidersHorizontal,
-  SlidersVertical,
-  Star,
-  SwatchBook,
-  Terminal,
-  X 
-} from 'lucide'
-
-const icon = X({ size: 16, strokeWidth: 1.5 })
-document.querySelector('#some-element').appendChild(icon)
