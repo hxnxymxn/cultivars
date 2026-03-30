@@ -376,16 +376,16 @@ function renderOrnament02() {
         const idx = parseInt(hit.dataset.ring)
         const ring = ringMap.get(idx)
         for (const t of ring) t.classList.add('ornament-02__tile--tinted')
-        // diffuse neighbors with gradient
+        // diffuse neighbors with gradient (corners get reduced range)
         const inner = ringMap.get(idx - 1)
         const outer = ringMap.get(idx + 1)
         if (inner) for (const t of inner) {
           t.style.setProperty('--grad', `${t._gradAngle + 180}deg`)
-          t.classList.add('ornament-02__tile--tinted-diffuse')
+          t.classList.add(t._isCorner ? 'ornament-02__tile--tinted-diffuse-corner' : 'ornament-02__tile--tinted-diffuse')
         }
         if (outer) for (const t of outer) {
           t.style.setProperty('--grad', `${t._gradAngle}deg`)
-          t.classList.add('ornament-02__tile--tinted-diffuse')
+          t.classList.add(t._isCorner ? 'ornament-02__tile--tinted-diffuse-corner' : 'ornament-02__tile--tinted-diffuse')
         }
         hoveredRings.add(idx)
         drawBorders()
@@ -396,8 +396,8 @@ function renderOrnament02() {
         for (const t of ring) t.classList.remove('ornament-02__tile--tinted')
         const inner = ringMap.get(idx - 1)
         const outer = ringMap.get(idx + 1)
-        if (inner) for (const t of inner) t.classList.remove('ornament-02__tile--tinted-diffuse')
-        if (outer) for (const t of outer) t.classList.remove('ornament-02__tile--tinted-diffuse')
+        if (inner) for (const t of inner) t.classList.remove('ornament-02__tile--tinted-diffuse', 'ornament-02__tile--tinted-diffuse-corner')
+        if (outer) for (const t of outer) t.classList.remove('ornament-02__tile--tinted-diffuse', 'ornament-02__tile--tinted-diffuse-corner')
         hoveredRings.delete(idx)
         drawBorders()
       })
