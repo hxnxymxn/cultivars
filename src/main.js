@@ -378,21 +378,11 @@ function renderOrnament02() {
     for (const hit of hitTiles) {
       hit.addEventListener('mouseenter', () => {
         const ring = ringMap.get(hit._ring)
-        for (const t of ring) {
-          t._lingerTimer && clearTimeout(t._lingerTimer)
-          t.classList.remove('ornament-02__tile--fading')
-          t.classList.add('ornament-02__tile--tinted')
-        }
+        for (const t of ring) t.classList.add('ornament-02__tile--tinted')
       })
       hit.addEventListener('mouseleave', () => {
         const ring = ringMap.get(hit._ring)
-        for (const t of ring) {
-          t._lingerTimer = setTimeout(() => {
-            t.classList.remove('ornament-02__tile--tinted')
-            t.classList.add('ornament-02__tile--fading')
-            setTimeout(() => t.classList.remove('ornament-02__tile--fading'), 500)
-          }, 300)
-        }
+        for (const t of ring) t.classList.remove('ornament-02__tile--tinted')
       })
     }
   }
